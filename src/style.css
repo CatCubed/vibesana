@@ -1,0 +1,551 @@
+:root {
+  --font: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --accent: #1fc877;
+  --accent-contrast: #0b1a12;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 45%, transparent);
+  --glow: 0 0 0 1px var(--accent-ring), 0 0 18px color-mix(in srgb, var(--accent) 32%, transparent);
+
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --card: #ffffff;
+  --chip: #e9edf2;
+  --sidebar: #ffffff;
+  --text: #1c2333;
+  --text-strong: #0f1420;
+  --muted: #6b7686;
+  --border: #e1e6ec;
+  --border-strong: #c3cbd6;
+  --ok: #17b36a;
+  --danger: #e5484d;
+  --warn: #e0a400;
+  --ok-contrast: #0f1420;
+  --danger-contrast: #ffffff;
+  --text-scale: 1;
+  --backdrop: color-mix(in srgb, var(--bg) 55%, rgb(0 0 0 / 0.55));
+
+  --shadow-raised: 0 1px 2px rgb(20 30 50 / 0.06), 0 10px 28px -14px rgb(20 30 50 / 0.3);
+  --shadow-float: 0 16px 48px -16px rgb(20 30 50 / 0.4);
+  --shadow-inset: inset 0 1px 2px rgb(20 30 50 / 0.08);
+
+  --pad: 12px;
+  --gap: 8px;
+  --card-font: 14px;
+  --column-width: 304px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f1420;
+    --surface: #161c29;
+    --surface-2: #1b2232;
+    --card: #1e2736;
+    --chip: #2a3447;
+    --sidebar: #131926;
+    --text: #dfe5ee;
+    --text-strong: #ffffff;
+    --muted: #8b96a8;
+    --border: #253044;
+    --border-strong: #3a475e;
+    --ok: #22d37f;
+    --danger: #ff6b6b;
+    --warn: #f5b942;
+    --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.35), 0 12px 32px -16px rgb(0 0 0 / 0.8);
+    --shadow-float: 0 20px 56px -16px rgb(0 0 0 / 0.8);
+    --shadow-inset: inset 0 2px 4px rgb(0 0 0 / 0.4);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1420;
+  --surface: #161c29;
+  --surface-2: #1b2232;
+  --card: #1e2736;
+  --chip: #2a3447;
+  --sidebar: #131926;
+  --text: #dfe5ee;
+  --text-strong: #ffffff;
+  --muted: #8b96a8;
+  --border: #253044;
+  --border-strong: #3a475e;
+  --ok: #22d37f;
+  --danger: #ff6b6b;
+  --warn: #f5b942;
+  --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.35), 0 12px 32px -16px rgb(0 0 0 / 0.8);
+  --shadow-float: 0 20px 56px -16px rgb(0 0 0 / 0.8);
+  --shadow-inset: inset 0 2px 4px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+:root[data-density='compact'] {
+  --pad: 8px;
+  --gap: 6px;
+  --card-font: 13px;
+}
+
+:root[data-glow='off'] {
+  --glow: 0 0 0 1px var(--accent-ring);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 500 14px var(--font);
+  font-size-adjust: var(--font-adjust);
+  /* Text size scales the glyphs only, so line spacing has to follow it. */
+  line-height: calc(1.45 * var(--text-scale));
+  /* Every font is scaled so its lowercase letters are as tall as Nunito's; otherwise Inter, Roboto or the mono fonts look a size bigger. */
+  font-size-adjust: var(--font-adjust, 0.484);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text-strong);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s;
+}
+
+input,
+textarea,
+select {
+  box-shadow: var(--shadow-inset);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
+button {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* Filled accent controls (primary buttons, active segments and tabs) carry the heaviest weight. */
+.btn-primary,
+.modes button.on,
+.tabs button.on,
+.segmented button.on,
+.nav-item.active,
+.tab.active {
+  font-weight: 800;
+}
+
+/* Menu rows read as text, so they stay a step lighter than buttons. */
+.menu button,
+.more-menu button,
+.popover li,
+.results li {
+  font-weight: 600;
+}
+
+button:hover:not(:disabled) {
+  background: var(--chip);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent-ring);
+  box-shadow: var(--shadow-inset), 0 0 0 3px var(--accent-soft);
+}
+
+/* An outline, not a shadow: component styles that set their own box-shadow cannot hide it. */
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+[role='option']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--accent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* shared recipes */
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, white);
+}
+/* A button or link holding a line icon centres it and spaces it from any text; component styles can still override. */
+button:has(> .ui-icon),
+a:has(> .ui-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* Controls that only appear on hover must also appear when reached by keyboard. */
+button:focus-visible,
+a:focus-visible {
+  opacity: 1 !important;
+}
+.btn-danger {
+  background: var(--danger);
+  color: var(--danger-contrast);
+  border-color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 88%, white);
+}
+/* The app's own tooltip (see tooltips.ts); it replaces the browser's for every title attribute. */
+.app-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text-strong);
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease;
+}
+.app-tooltip.show {
+  opacity: 1;
+  visibility: visible;
+}
+:root[data-motion='off'] .app-tooltip {
+  transition: none;
+}
+/* Every floating menu, picker and dropdown shares this look. */
+.popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text-strong);
+  background: var(--chip);
+}
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--chip);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* rich text (descriptions, comments) */
+.rich {
+  white-space: pre-wrap;
+  line-height: calc(1.6 * var(--text-scale));
+  word-break: break-word;
+  /* Regular weight on purpose: Firefox treats anything heavier as already bold and its Bold command then un-bolds. */
+  font-weight: 400;
+}
+.rich span[style*='font-weight: normal'],
+.rich span[style*='font-weight: 400'] {
+  font-weight: 400;
+  color: inherit;
+}
+.rich strong,
+.rich b,
+.rich span[style*='font-weight'] {
+  font-weight: 800;
+  color: var(--text-strong);
+}
+.rich em,
+.rich i {
+  font-style: italic;
+}
+.rich u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich s,
+.rich strike {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.rich img {
+  cursor: zoom-in;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin: 8px 0;
+}
+.rich[contenteditable='true'] img {
+  display: inline-block;
+  vertical-align: bottom;
+  cursor: pointer;
+}
+.rich img.picked {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: var(--glow);
+}
+.rich ul,
+.rich ol {
+  white-space: normal;
+  margin: 4px 0;
+  padding-left: 22px;
+}
+.rich li {
+  white-space: pre-wrap;
+}
+.rich code {
+  background: var(--chip);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 0.92em;
+  font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+}
+.rich[contenteditable='true'] pre {
+  min-height: 1.6em;
+}
+.rich pre {
+  font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--surface-2);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  box-shadow: var(--shadow-inset);
+}
+.rich table {
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.rich td {
+  border: 1px solid var(--border-strong);
+  padding: 4px 8px;
+  vertical-align: top;
+  min-width: 48px;
+}
+.rich blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 4px 0;
+  padding-left: 10px;
+  color: var(--muted);
+}
+.rich h1 {
+  font-size: 20px;
+  margin: 8px 0 4px;
+}
+.rich h2 {
+  font-size: 17px;
+  margin: 8px 0 4px;
+}
+.rich a[data-asana-type='user'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 5px;
+  padding: 0 4px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+/* motion: short and subtle; off with the Animations setting or the system's reduce-motion preference */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: opacity 0.16s ease;
+}
+.drawer-enter-active .drawer,
+.drawer-leave-active .drawer {
+  transition:
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.16s ease;
+}
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+}
+.drawer-enter-from .drawer,
+.drawer-leave-to .drawer {
+  transform: translateX(32px);
+  opacity: 0;
+}
+
+.pop-enter-active,
+.pop-leave-active {
+  transition: opacity 0.14s ease;
+}
+.pop-enter-active > *,
+.pop-leave-active > * {
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.14s ease;
+}
+.pop-enter-from,
+.pop-leave-to {
+  opacity: 0;
+}
+.pop-enter-from > *,
+.pop-leave-to > * {
+  transform: translateY(-10px) scale(0.98);
+  opacity: 0;
+}
+
+.swap-enter-active,
+.swap-leave-active {
+  transition: opacity 0.09s ease;
+}
+.swap-enter-from,
+.swap-leave-to {
+  opacity: 0;
+}
+
+.toast-enter-active,
+.toast-leave-active,
+.toast-move {
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.16s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* loading placeholders */
+.skeleton {
+  flex: none;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--chip) 25%,
+    color-mix(in srgb, var(--chip) 55%, var(--surface-2)) 40%,
+    var(--chip) 60%
+  );
+  background-size: 300% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* small popups: menus, pickers, suggestion lists */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+}
+.popover,
+.menu,
+.more-menu,
+.pop,
+.suggestions {
+  animation: pop-in 0.13s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top center;
+}
+:root[data-motion='off'] .skeleton {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
