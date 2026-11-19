@@ -31,6 +31,7 @@ const ICONS = {
   send: 'M10 16V4M5 9l5-5 5 5',
   sort: 'M6 4v12M3.5 13.5L6 16l2.5-2.5M14 16V4M11.5 6.5L14 4l2.5 2.5',
   plus: 'M10 4v12M4 10h12',
+  file: 'M5.5 3.5h5.5l3.5 3.5v9.5h-9zM11 3.5V7h3.5',
   refresh: 'M15.5 8A6 6 0 0 0 4.6 6.5M4.5 3.5v3h3M4.5 12a6 6 0 0 0 10.9 1.5M15.5 16.5v-3h-3',
   'chevrons-left': 'M10 5l-5 5 5 5M15 5l-5 5 5 5',
   'chevrons-right': 'M5 5l5 5-5 5M10 5l5 5-5 5',

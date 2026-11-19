@@ -16,6 +16,7 @@ import type {
   TaskDetail,
   TypeaheadResult,
 } from '../types'
+import type { ProjectResource } from '../overview'
 
 const TOKEN_KEY = 'asana-board:token'
 const CARD_FIELDS = [
@@ -141,6 +142,27 @@ export async function me(): Promise<Person & { workspaces: Named[] }> {
 
 export async function project(gid: string): Promise<Project> {
   return (await get<{ data: Project }>(`/projects/${gid}?opt_fields=name,color,icon`)).data
+}
+
+/** A project's key resources (Overview tab in Asana): the links and files attached to the project itself. */
+export async function projectResources(gid: string): Promise<ProjectResource[]> {
+  const fields = 'name,resource_subtype,host,view_url,permanent_url,download_url'
+  return (await get<{ data: ProjectResource[] }>(`/attachments?parent=${gid}&opt_fields=${fields}`)).data
+}
+
+/** The project's description (rich text) and the gid of its brief, if it has one. */
+export async function projectDescription(gid: string): Promise<{ html_notes: string; brief: string | null }> {
+  const data = (
+    await get<{ data: { html_notes?: string; project_brief?: { gid: string } | null } }>(
+      `/projects/${gid}?opt_fields=html_notes,project_brief`,
+    )
+  ).data
+  return { html_notes: data.html_notes ?? '', brief: data.project_brief?.gid ?? null }
+}
+
+export async function projectBrief(gid: string): Promise<{ title: string; html_text: string }> {
+  const data = (await get<{ data: { title?: string; html_text?: string } }>(`/project_briefs/${gid}?opt_fields=title,html_text`)).data
+  return { title: data.title ?? '', html_text: data.html_text ?? '' }
 }
 
 export async function favoriteProjects(workspace: string): Promise<Project[]> {
