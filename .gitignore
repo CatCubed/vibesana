@@ -4,3 +4,6 @@ dist/
 .mcp.json
 .claude/
 .idea/
+docker-compose.override.yml
+.env.local
+.env.*.local
