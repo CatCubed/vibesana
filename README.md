@@ -65,6 +65,7 @@ Cards show a colored **project chip** (and/or a left stripe) for every project a
 - **Desktop notifications** (account menu): a browser notification for new Activity items while Vibesana is in the background; needs the tab to stay open
 - **Command bar** (`Ctrl K`): plain text searches tasks across the workspace, `@` searches projects (favorites when empty), `!` lists actions (My Tasks, theme, sidebar, completed, density, glow, refresh, sign out)
 - **Board filters & sort**: Assignee (any user), Due (overdue / today / this week / none), Field (custom-field values), Sort (Asana order, due date, name, or a field's option order); they apply to loaded cards and pause drag & drop
+- **Project overview**: an Overview mode next to Board / List / Calendar shows the project's key resources (its links and files, clickable), its description and its brief. Read-only, and loaded fresh from Asana each time it is opened — it is never cached or stored in the browser, because this is where credentials tend to live
 - **Views per project**: Board, List (table with assignee, due date and custom-field columns; click a header to sort, click a cell to edit) and Calendar (month grid by due date; drag a task to another day). List, Calendar and grouping load every task of the project first
 - **Group by field**: the Group pill turns the board's columns into the options of a single-select custom field; dragging a card to another column changes that field
 - **Saved views**: the Views pill stores the current filters, sort, grouping and layout under a name, per project
