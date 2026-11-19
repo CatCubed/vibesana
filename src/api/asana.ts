@@ -80,11 +80,14 @@ export class AsanaError extends Error {
   }
 }
 
+/** Token baked in at build time from .env.local; a token pasted in the app wins over it. */
+const ENV_TOKEN = import.meta.env.VITE_ASANA_TOKEN || null
+
 export function getToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY)
+    return localStorage.getItem(TOKEN_KEY) ?? ENV_TOKEN
   } catch {
-    return null
+    return ENV_TOKEN
   }
 }
 
