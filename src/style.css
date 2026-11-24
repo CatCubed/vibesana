@@ -403,6 +403,11 @@ a:focus-visible {
   vertical-align: top;
   min-width: 48px;
 }
+.rich hr {
+  border: 0;
+  border-top: 1px solid var(--border-strong);
+  margin: 10px 0;
+}
 .rich blockquote {
   border-left: 3px solid var(--accent);
   margin: 4px 0;
