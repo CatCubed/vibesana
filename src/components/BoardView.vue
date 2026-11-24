@@ -5,6 +5,7 @@ import * as api from '../api/asana'
 import BoardColumn from './BoardColumn.vue'
 import CalendarGrid from './CalendarGrid.vue'
 import ProjectList from './ProjectList.vue'
+import ProjectOverview from './ProjectOverview.vue'
 import ProjectIcon from './ProjectIcon.vue'
 import PillMenu from './PillMenu.vue'
 import SelectMenu from './SelectMenu.vue'
@@ -158,11 +159,12 @@ const enumFields = computed(() => fields.value.filter((f) => f.resource_subtype 
 const activeField = computed(() => fields.value.find((f) => f.gid === fieldFilter.value?.gid) ?? null)
 const prefs = computed(() => cardPrefs(props.project.gid))
 
-type Mode = 'board' | 'list' | 'calendar'
+type Mode = 'board' | 'list' | 'calendar' | 'overview'
 const MODES: { value: Mode; label: string }[] = [
   { value: 'board', label: 'Board' },
   { value: 'list', label: 'List' },
   { value: 'calendar', label: 'Calendar' },
+  { value: 'overview', label: 'Overview' },
 ]
 const mode = ref<Mode>(readSetting<Mode>(`mode:${props.project.gid}`, 'board'))
 const groupBy = ref<string>(readSetting(`group:${props.project.gid}`, 'section'))
@@ -174,7 +176,10 @@ const groupField = computed(() => groupFields.value.find((f) => f.gid === groupB
 /** In split view each pane is always a plain board: no list, calendar or grouping. */
 const shownMode = computed<Mode>(() => (props.split ? 'board' : mode.value))
 const grouped = computed(() => !props.split && shownMode.value === 'board' && groupField.value !== null)
-const needsAll = computed(() => !props.split && (mode.value !== 'board' || groupBy.value !== 'section'))
+/** List, calendar and grouping show every task; the overview shows none, so it loads none. */
+const needsAll = computed(
+  () => !props.split && mode.value !== 'overview' && (mode.value !== 'board' || groupBy.value !== 'section'),
+)
 
 async function loadEverything(): Promise<void> {
   if (!needsAll.value || loadingAll.value) return
@@ -718,6 +723,8 @@ function onKey(event: KeyboardEvent): void {
     target instanceof HTMLSelectElement ||
     target.isContentEditable
   if (!props.active || typing || event.ctrlKey || event.metaKey || event.altKey || opener.state.gid || quickEdit.value) return
+  // The overview has no cards: board shortcuts stay off there, so the arrow keys scroll the page as usual.
+  if (shownMode.value === 'overview') return
   const key = event.key
   if (key === '/') {
     event.preventDefault()
@@ -792,6 +799,8 @@ onBeforeUnmount(() => {
 
       <span class="spacer" />
 
+      <!-- Search, filters, sorting and card options act on tasks; the overview has none. -->
+      <template v-if="shownMode !== 'overview'">
       <label class="pill search" :class="{ on: query }">
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -953,6 +962,7 @@ onBeforeUnmount(() => {
       </PillMenu>
 
       <button class="btn-ghost round" title="Reload loaded columns" aria-label="Reload loaded columns" @click="board.reloadAll()"><UiIcon name="refresh" :size="15" /></button>
+      </template>
     </header>
 
     <p v-if="filtered && shownMode === 'board' && !grouped" class="hint">
@@ -976,6 +986,8 @@ onBeforeUnmount(() => {
     />
 
     <CalendarGrid v-else-if="shownMode === 'calendar'" :cards="allCards" @open="opener.open($event)" @reschedule="reschedule" />
+
+    <ProjectOverview v-else-if="shownMode === 'overview'" :project="project.gid" />
 
     <div v-else-if="grouped" ref="groupScroller" class="columns">
       <BoardColumn
