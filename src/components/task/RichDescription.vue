@@ -28,7 +28,7 @@ async function save(xml: string): Promise<void> {
       <h3 class="eyebrow">Description</h3>
       <button v-if="!editing" class="btn-ghost edit" @click="startEditing"><UiIcon name="edit" :size="14" /> Edit</button>
     </div>
-    <RichEditor v-if="editing" :html="html" :busy="busy" close-on-leave @save="save" @cancel="editing = false" />
+    <RichEditor v-if="editing" :html="html" :busy="busy" close-on-leave divider @save="save" @cancel="editing = false" />
     <div v-else-if="html" class="rich view" title="Click to edit" @click="startEditing" v-html="html" />
     <div v-else class="rich view placeholder" @click="startEditing">What is this task about?</div>
   </div>

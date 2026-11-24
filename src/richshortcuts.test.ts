@@ -209,3 +209,77 @@ describe('quote shortcut', () => {
     expect(serializeRichText(editor)).toBe('<body><blockquote>said</blockquote></body>')
   })
 })
+
+describe('divider shortcut', () => {
+  /** Like type(), with the divider shortcut switched on as it is in the description editor. */
+  function typeIn(build: (root: HTMLElement) => void, divider = true): boolean {
+    editor = document.createElement('div')
+    build(editor)
+    document.body.appendChild(editor)
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text
+      const at = (node.textContent ?? '').indexOf('|')
+      if (at === -1) continue
+      node.deleteData(at, 1)
+      const range = document.createRange()
+      range.setStart(node, at)
+      range.collapse(true)
+      const selection = window.getSelection()!
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return autoFormat(editor, new Event('input'), { divider })
+    }
+    throw new Error('no caret marker')
+  }
+  const html = (markup: string) => (root: HTMLElement) => (root.innerHTML = markup)
+  const nodes = (...texts: string[]) => (root: HTMLElement) => texts.forEach((t) => root.appendChild(document.createTextNode(t)))
+
+  it('turns "---" on an empty editor into a divider and leaves the caret under it', () => {
+    expect(typeIn(html('---|'))).toBe(true)
+    expect(editor.querySelector('hr')).not.toBeNull()
+    expect(serializeRichText(editor)).toBe('<body><hr/></body>')
+    const selection = window.getSelection()!
+    expect(editor.querySelector('hr')!.compareDocumentPosition(selection.anchorNode!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+  it('puts the divider between the lines around it, without blank lines', () => {
+    expect(typeIn(html('above\n---|\nbelow'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body>above<hr/>below</body>')
+  })
+  it('works on the last line', () => {
+    expect(typeIn(html('above\n---|'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body>above<hr/></body>')
+  })
+  it('works when Enter left the line in its own text node', () => {
+    expect(typeIn(nodes('above\n', '---|'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body>above<hr/></body>')
+  })
+  it('works after a <br> and inside a line wrapper the browser made', () => {
+    expect(typeIn(html('above<br>---|'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body>above<hr/></body>')
+    editor.remove()
+    expect(typeIn(html('<div>above</div><div>---|</div>'))).toBe(true)
+    expect(editor.querySelectorAll('hr')).toHaveLength(1)
+    expect(serializeRichText(editor)).toContain('above')
+    expect(serializeRichText(editor)).toContain('<hr/>')
+    expect(serializeRichText(editor)).not.toContain('---')
+  })
+  it('leaves dashes alone when they are not a line of their own', () => {
+    expect(typeIn(html('a ---|'))).toBe(false)
+    editor.remove()
+    expect(typeIn(html('---| more'))).toBe(false)
+    editor.remove()
+    expect(typeIn(html('--|'))).toBe(false)
+    editor.remove()
+    expect(typeIn(html('----|'))).toBe(false)
+    expect(editor.querySelector('hr')).toBeNull()
+  })
+  it('is off where dividers are not allowed (comments)', () => {
+    expect(typeIn(html('---|'), false)).toBe(false)
+    expect(editor.querySelector('hr')).toBeNull()
+  })
+  it('does not disturb the bullet shortcut', () => {
+    expect(typeIn(html('- |'))).toBe(true)
+    expect(editor.querySelector('ul li')).not.toBeNull()
+  })
+})

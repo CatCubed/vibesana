@@ -7,7 +7,7 @@ import { useFormatState } from '../../composables/useFormatState'
 import { autoFormat, exitHeadingOnEnter, handleFormatHotkey } from '../../richshortcuts'
 import { exitCodeOnEnter } from '../../richblocks'
 
-const props = defineProps<{ html: string; busy?: boolean; closeOnLeave?: boolean }>()
+const props = defineProps<{ html: string; busy?: boolean; closeOnLeave?: boolean; divider?: boolean }>()
 const emit = defineEmits<{ save: [xml: string]; cancel: [] }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -89,7 +89,7 @@ function onKey(event: KeyboardEvent): void {
 <template>
   <div ref="root" class="rich-editor" @focusout="onFocusOut">
     <FormatToolbar class="toolbar" :editor="editor" :active="active" />
-    <div ref="editor" class="rich editor" contenteditable="true" @keydown="onKey" @input="editor && autoFormat(editor, $event)" @click="images.onClick" @paste="images.onPaste" @dragover.prevent @drop="images.onDrop" />
+    <div ref="editor" class="rich editor" contenteditable="true" @keydown="onKey" @input="editor && autoFormat(editor, $event, { divider })" @click="images.onClick" @paste="images.onPaste" @dragover.prevent @drop="images.onDrop" />
     <div class="actions">
       <span class="muted" title="- or * list · 1. numbered · # heading · > quote · `code` · **bold** · _italic_ · ~~strike~~">
         {{ closeOnLeave ? 'Click outside or Ctrl+Enter to save' : 'Ctrl+Enter to save' }} · Esc to cancel · Markdown shortcuts work

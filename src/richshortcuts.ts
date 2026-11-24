@@ -142,6 +142,62 @@ function blockShortcut(editor: HTMLElement, caret: Caret): boolean {
   return true
 }
 
+/**
+ * Typing "---" on a line of its own turns that line into a divider (a horizontal rule), as in Asana.
+ * Same line rules as the other block shortcuts; anything else on the line means it is just three dashes.
+ */
+function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
+  const container = caret.node.parentElement
+  if (!container) return false
+  const wrapped = container !== editor
+  if (wrapped && !(container.parentElement === editor && (container.tagName === 'DIV' || container.tagName === 'P'))) {
+    return false
+  }
+  const start = caret.before.lastIndexOf('\n') + 1
+  if (wrapped && (start > 0 || previousReal(caret.node))) return false
+  if (start === 0 && !endsLine(previousReal(caret.node))) return false
+  if (caret.before.slice(start).split(ZWSP).join('') !== '---') return false
+
+  // Nothing may follow on the same line.
+  const rest = (caret.node.textContent ?? '').slice(caret.offset).split(ZWSP).join('')
+  let following = caret.node.nextSibling
+  while (following && following.nodeType === Node.TEXT_NODE && !(following.textContent ?? '').split(ZWSP).join('')) {
+    following = following.nextSibling
+  }
+  if (rest ? !rest.startsWith('\n') : !(isBoundary(following) || (following!.nodeType === Node.TEXT_NODE && following!.textContent!.startsWith('\n')))) {
+    return false
+  }
+
+  // Cut the line out: the dashes, and the line breaks around them (a rule is a block of its own).
+  const after = caret.node.splitText(caret.offset)
+  caret.node.deleteData(start, caret.node.length - start)
+  if (start > 0) caret.node.deleteData(start - 1, 1)
+  else {
+    const prev = previousReal(caret.node)
+    if (prev?.nodeName === 'BR') prev.parentNode?.removeChild(prev)
+    else if (prev?.nodeType === Node.TEXT_NODE && (prev.textContent ?? '').endsWith('\n')) {
+      ;(prev as Text).deleteData((prev.textContent ?? '').length - 1, 1)
+    }
+  }
+  if ((after.textContent ?? '').startsWith('\n')) after.deleteData(0, 1)
+  else if (!after.length && following?.nodeName === 'BR') following.remove()
+  else if (!after.length && following?.nodeType === Node.TEXT_NODE) (following as Text).deleteData(0, 1)
+
+  const rule = document.createElement('hr')
+  if (wrapped) editor.insertBefore(rule, container)
+  else editor.insertBefore(rule, after)
+
+  // The caret continues on the line under the rule.
+  if (wrapped) {
+    if (!container.textContent?.split(ZWSP).join('') && !container.querySelector('img, br')) container.appendChild(document.createElement('br'))
+    placeCaret(container, 0)
+  } else {
+    if (!after.length) after.data = ZWSP
+    placeCaret(after, after.data.startsWith(ZWSP) ? 1 : 0)
+  }
+  return true
+}
+
 const INLINE: { pattern: RegExp; tag: string }[] = [
   { pattern: /`([^`\n]+)`$/, tag: 'code' },
   { pattern: /\*\*([^*\n]+)\*\*$/, tag: 'strong' },
@@ -167,13 +223,18 @@ function inlineShortcut(caret: Caret): boolean {
   return false
 }
 
+export interface AutoFormatOptions {
+  /** "---" makes a divider. Only where Asana accepts one: descriptions, not comments. */
+  divider?: boolean
+}
+
 /** Call from an editor's `input` event: turns Markdown-style shortcuts into formatting. */
-export function autoFormat(editor: HTMLElement, event?: Event): boolean {
+export function autoFormat(editor: HTMLElement, event?: Event, options: AutoFormatOptions = {}): boolean {
   const type = (event as InputEvent | undefined)?.inputType ?? ''
   if (type.startsWith('delete') || type.startsWith('history')) return false
   const caret = caretIn(editor)
   if (!caret) return false
-  return blockShortcut(editor, caret) || inlineShortcut(caret)
+  return (options.divider === true && dividerShortcut(editor, caret)) || blockShortcut(editor, caret) || inlineShortcut(caret)
 }
 
 /** Enter inside a heading starts a normal line below it. Returns true when handled. */
