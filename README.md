@@ -78,8 +78,9 @@ Cards show a colored **project chip** (and/or a left stripe) for every project a
 - **Columns**: `⋯` menu with rename (or double-click the title), add column to left/right (the name box appears in place; next to a week column like `2026-w46` it is pre-filled with the next free week), collapse this/all/empty columns, expand all, move left/right, delete (empty only); "+ Add column" at the end of the board
 - **Dates**: calendar picker with quick picks (Today, Tomorrow, Next Monday, In a week, No date) and start–due range highlight
 - **Multi-option fields in one go**: in the task panel, a field that allows several values (tags, services …) opens a tick list that stays open; tick as many as you need and it saves once when you click outside or press Esc
-- **Divider line**: type `---` on a line of its own in a task description to insert a separator, as in Asana (descriptions only, not comments)
+- **Divider line**: type `---` at the start of a line in a task description to insert a separator, as in Asana; text already on that line moves under it (descriptions only, not comments)
 - **Markdown shortcuts while typing** (description, comment box, comment editing): `- ` or `* ` starts a bullet list, `1. ` a numbered list, `# ` / `## ` a heading, and `\`code\``, `**bold**`, `_italic_`, `~~strike~~` convert when the closing mark is typed
+- **Block styles on several lines**: select several lines and apply quote, code block or a heading to all of them at once (one quote or code block; one heading per line)
 - **Block styles in the editors**: toolbar buttons and hotkeys for large heading (Ctrl+Alt+1), medium heading (Ctrl+Alt+2), code block (Ctrl+Shift+C or typing ``` and Space), quote block (❝ button or typing `>` and Space) and back to normal text (Ctrl+Alt+0); pressing the same style again turns it off; Enter on an empty last line leaves a code or quote block; undo and redo buttons
 - **Formatting hotkeys in the editors**: Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, Ctrl+Shift+X strikethrough, Ctrl+E (or Ctrl+Shift+M) code, Ctrl+Shift+8 bullets, Ctrl+Shift+7 numbered list, Ctrl+K link
 - **Images in text**: paste a screenshot or drop an image file into the description editor, the comment box or a comment being edited; it is uploaded to the task and inserted inline. Click an image in an editor and press Backspace or Delete to remove it (Backspace right after an image works too)
@@ -89,7 +90,7 @@ Cards show a colored **project chip** (and/or a left stripe) for every project a
 - **Status history** (task panel): a collapsible timeline of custom-field status changes, column moves and completion, with how long the task stayed in each value and how long it has been in the current one
 - **Images**: click an image in a description, comment or the attachments list to view it full screen; click again for actual size (scrollable), Esc closes
 - **Comments**: like / unlike with counts; edit and delete your own (hover a comment); pasted URLs become links in comments and descriptions, and links copied from a web page keep their titles; the comment box and comment editing are rich editors (bold, italic, underline, strike, code, lists, links, @mentions)
-- Browser history: opening tasks and switching projects push history entries, so mouse back/forward (and Alt+←/→) close/reopen tasks and move between projects
+- Browser history: opening a task, switching to another one, closing it and changing project or view are each a step, so mouse back/forward (and Alt+←/→) walk through them one at a time — back to the previous task, or to no task if none was open
 - Links to Asana tasks in descriptions, comments and task mentions open the task in Vibesana (Ctrl/middle-click still opens Asana)
 
 - Lazy columns, paging, virtualized cards

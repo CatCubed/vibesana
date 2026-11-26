@@ -7,7 +7,6 @@ const state = reactive<{ gid: string | null; stack: string[] }>({ gid: null, sta
 const listeners = new Set<Listener>()
 const removedListeners = new Set<(gid: string) => void>()
 let afterNavigate: (() => void) | null = null
-let afterReplace: (() => void) | null = null
 let afterClose: (() => void) | null = null
 
 function push(gid: string): void {
@@ -20,7 +19,10 @@ function push(gid: string): void {
 export function useTaskOpener() {
   return {
     state,
-    /** Opens a task; if one is already open it is swapped in place (no extra Back step). */
+    /**
+     * Opens a task. If one is already open it takes its place in the panel (the panel's own back arrow is
+     * for drilling into subtasks), but it is still a new browser-history step, so Back returns to the old one.
+     */
     open: (gid: string) => {
       if (gid === state.gid) return
       if (!state.gid) {
@@ -29,12 +31,16 @@ export function useTaskOpener() {
       }
       state.stack = [...state.stack.slice(0, -1), gid]
       state.gid = gid
-      afterReplace?.()
+      afterNavigate?.()
     },
     /** Opens a task on top of the current one, so Back returns to it. */
     push,
+    /** The panel's back arrow: up to the task this one was opened from. Also a history step, so Forward returns. */
     back: () => {
-      if (state.stack.length > 1) window.history.back()
+      if (state.stack.length < 2) return
+      state.stack = state.stack.slice(0, -1)
+      state.gid = state.stack[state.stack.length - 1]
+      afterNavigate?.()
     },
     close: () => {
       if (!state.gid) return
@@ -47,9 +53,6 @@ export function useTaskOpener() {
     },
     onNavigate: (fn: () => void) => {
       afterNavigate = fn
-    },
-    onReplace: (fn: () => void) => {
-      afterReplace = fn
     },
     listen: (fn: Listener) => listeners.add(fn),
     unlisten: (fn: Listener) => listeners.delete(fn),
