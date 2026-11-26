@@ -85,6 +85,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
       ['# / ## then Space', 'Large / medium heading'],
       ['> then Space', 'Quote block'],
       ['---', 'Divider line (in descriptions)'],
+      ['-> or <- then Space', 'Arrow: → or ←'],
       ['``` then Space', 'Code block'],
       ['`code`  **bold**  _italic_  ~~strike~~', 'Convert when the closing mark is typed'],
       ['@name', 'Mention a teammate (in comments)'],

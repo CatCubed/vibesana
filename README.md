@@ -78,6 +78,7 @@ Cards show a colored **project chip** (and/or a left stripe) for every project a
 - **Columns**: `⋯` menu with rename (or double-click the title), add column to left/right (the name box appears in place; next to a week column like `2026-w46` it is pre-filled with the next free week), collapse this/all/empty columns, expand all, move left/right, delete (empty only); "+ Add column" at the end of the board
 - **Dates**: calendar picker with quick picks (Today, Tomorrow, Next Monday, In a week, No date) and start–due range highlight
 - **Multi-option fields in one go**: in the task panel, a field that allows several values (tags, services …) opens a tick list that stays open; tick as many as you need and it saves once when you click outside or press Esc
+- **Arrows while typing**: `->` followed by a space becomes →, and `<-` becomes ←, in descriptions and comments (not inside code)
 - **Divider line**: type `---` at the start of a line in a task description to insert a separator, as in Asana; text already on that line moves under it (descriptions only, not comments)
 - **Markdown shortcuts while typing** (description, comment box, comment editing): `- ` or `* ` starts a bullet list, `1. ` a numbered list, `# ` / `## ` a heading, and `\`code\``, `**bold**`, `_italic_`, `~~strike~~` convert when the closing mark is typed
 - **Block styles on several lines**: select several lines and apply quote, code block or a heading to all of them at once (one quote or code block; one heading per line)

@@ -296,3 +296,41 @@ describe('divider shortcut', () => {
     expect(editor.querySelector('ul li')).not.toBeNull()
   })
 })
+
+describe('arrow shortcut', () => {
+  it('turns "->" and a space into an arrow and keeps the caret after the space', () => {
+    expect(type('api -> |admin')).toBe(true)
+    expect(editor.textContent).toBe('api → admin')
+    const selection = window.getSelection()!
+    expect(selection.anchorOffset).toBe('api → '.length)
+  })
+  it('works at the start of a line and with a non-breaking space', () => {
+    expect(type('-> |')).toBe(true)
+    expect(editor.textContent).toBe('→ ')
+    editor.remove()
+    expect(type('a\n->\u00a0|')).toBe(true)
+    expect(editor.textContent).toBe('a\n→\u00a0')
+  })
+  it('turns "<-" into a left arrow', () => {
+    expect(type('back <- |')).toBe(true)
+    expect(editor.textContent).toBe('back ← ')
+  })
+  it('waits for the space', () => {
+    expect(type('a ->|')).toBe(false)
+    expect(editor.textContent).toBe('a ->')
+  })
+  it('leaves longer runs and code alone', () => {
+    expect(type('a --> |')).toBe(false)
+    editor.remove()
+    expect(type('a <-> |')).toBe(false)
+    editor.remove()
+    expect(type('<code>x -> |</code>')).toBe(false)
+    editor.remove()
+    expect(type('<pre>if (a) -> |</pre>')).toBe(false)
+    expect(editor.textContent).toBe('if (a) -> ')
+  })
+  it('does not get in the way of the bullet shortcut', () => {
+    expect(type('- |')).toBe(true)
+    expect(editor.querySelector('ul li')).not.toBeNull()
+  })
+})

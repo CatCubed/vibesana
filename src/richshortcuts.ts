@@ -221,6 +221,27 @@ function inlineShortcut(caret: Caret): boolean {
   return false
 }
 
+const ARROWS: { typed: string; arrow: string }[] = [
+  { typed: '->', arrow: '→' },
+  { typed: '<-', arrow: '←' },
+]
+
+/**
+ * "->" followed by a space becomes an arrow, as in Asana ("<-" likewise). Longer runs such as "-->" or
+ * "<->" are left alone, and so is anything inside code.
+ */
+function arrowShortcut(caret: Caret): boolean {
+  if (caret.node.parentElement?.closest('code, pre')) return false
+  const match = caret.before.match(/(^|[^-<>])(->|<-)([ \u00a0])$/)
+  if (!match) return false
+  const found = ARROWS.find((a) => a.typed === match[2])
+  if (!found) return false
+  const start = caret.offset - match[2].length - 1
+  caret.node.replaceData(start, match[2].length, found.arrow)
+  placeCaret(caret.node, start + found.arrow.length + 1)
+  return true
+}
+
 export interface AutoFormatOptions {
   /** "---" makes a divider. Only where Asana accepts one: descriptions, not comments. */
   divider?: boolean
@@ -232,7 +253,12 @@ export function autoFormat(editor: HTMLElement, event?: Event, options: AutoForm
   if (type.startsWith('delete') || type.startsWith('history')) return false
   const caret = caretIn(editor)
   if (!caret) return false
-  return (options.divider === true && dividerShortcut(editor, caret)) || blockShortcut(editor, caret) || inlineShortcut(caret)
+  return (
+    (options.divider === true && dividerShortcut(editor, caret)) ||
+    blockShortcut(editor, caret) ||
+    inlineShortcut(caret) ||
+    arrowShortcut(caret)
+  )
 }
 
 /** Enter inside a heading starts a normal line below it. Returns true when handled. */
