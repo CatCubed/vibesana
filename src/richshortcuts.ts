@@ -143,8 +143,9 @@ function blockShortcut(editor: HTMLElement, caret: Caret): boolean {
 }
 
 /**
- * Typing "---" on a line of its own turns that line into a divider (a horizontal rule), as in Asana.
- * Same line rules as the other block shortcuts; anything else on the line means it is just three dashes.
+ * Typing "---" at the start of a line turns it into a divider (a horizontal rule), as in Asana.
+ * Text already on that line after the dashes stays, on the line under the divider — so a divider can be
+ * put above existing text by typing the dashes in front of it.
  */
 function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   const container = caret.node.parentElement
@@ -158,14 +159,9 @@ function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   if (start === 0 && !endsLine(previousReal(caret.node))) return false
   if (caret.before.slice(start).split(ZWSP).join('') !== '---') return false
 
-  // Nothing may follow on the same line.
-  const rest = (caret.node.textContent ?? '').slice(caret.offset).split(ZWSP).join('')
   let following = caret.node.nextSibling
   while (following && following.nodeType === Node.TEXT_NODE && !(following.textContent ?? '').split(ZWSP).join('')) {
     following = following.nextSibling
-  }
-  if (rest ? !rest.startsWith('\n') : !(isBoundary(following) || (following!.nodeType === Node.TEXT_NODE && following!.textContent!.startsWith('\n')))) {
-    return false
   }
 
   // Cut the line out: the dashes, and the line breaks around them (a rule is a block of its own).
@@ -181,7 +177,9 @@ function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   }
   if ((after.textContent ?? '').startsWith('\n')) after.deleteData(0, 1)
   else if (!after.length && following?.nodeName === 'BR') following.remove()
-  else if (!after.length && following?.nodeType === Node.TEXT_NODE) (following as Text).deleteData(0, 1)
+  else if (!after.length && following?.nodeType === Node.TEXT_NODE && (following.textContent ?? '').startsWith('\n')) {
+    ;(following as Text).deleteData(0, 1)
+  }
 
   const rule = document.createElement('hr')
   if (wrapped) editor.insertBefore(rule, container)
