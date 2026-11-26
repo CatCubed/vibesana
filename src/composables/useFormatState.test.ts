@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatsAt } from './useFormatState'
+import { formatsAt, withTypingState } from './useFormatState'
 
 function at(html: string, selector: string) {
   const editor = document.createElement('div')
@@ -43,5 +43,30 @@ describe('formatsAt', () => {
     editor.textContent = 'x'
     outer.appendChild(editor)
     expect(formatsAt(editor, editor.firstChild).bold).toBe(false)
+  })
+})
+
+describe('withTypingState', () => {
+  const plain = formatsAt(document.createElement('div'), null)
+
+  it('shows a style switched on for the next typed text, before any such text exists', () => {
+    const state = withTypingState(plain, (command) => command === 'bold')
+    expect(state).toMatchObject({ bold: true, italic: false, underline: false, strike: false })
+  })
+  it('shows a style switched off again inside formatted text', () => {
+    const inBold = { ...plain, bold: true, italic: true }
+    expect(withTypingState(inBold, (command) => command === 'italic')).toMatchObject({ bold: false, italic: true })
+  })
+  it('maps strikethrough to its command name and leaves the other flags alone', () => {
+    const state = withTypingState({ ...plain, code: true, link: true, block: 'h1' }, (command) => command === 'strikeThrough')
+    expect(state).toMatchObject({ strike: true, code: true, link: true, block: 'h1' })
+  })
+  it('keeps what the text shows when the browser cannot answer', () => {
+    const inBold = { ...plain, bold: true }
+    expect(
+      withTypingState(inBold, () => {
+        throw new Error('not supported')
+      }),
+    ).toEqual(inBold)
   })
 })
