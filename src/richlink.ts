@@ -13,6 +13,35 @@ export function normalizeUrl(text: string): string | null {
   return `https://${value}`
 }
 
+/**
+ * Pasting a web address while text is selected links that text instead of replacing it, as in Asana.
+ * Returns true when it did; false leaves the paste to be handled normally.
+ */
+export function linkSelectionTo(editor: HTMLElement, pasted: string): boolean {
+  const url = pasted.trim()
+  if (!/^https?:\/\/\S+$/i.test(url)) return false
+  const selection = window.getSelection()
+  if (!selection?.rangeCount || selection.isCollapsed) return false
+  const range = selection.getRangeAt(0)
+  if (!editor.contains(range.commonAncestorContainer) || !range.toString().trim()) return false
+  const inside = (node: Node): Element | null => (node instanceof Element ? node : node.parentElement)?.closest('a, code, pre') ?? null
+  if (inside(range.startContainer) || inside(range.endContainer) || range.cloneContents().querySelector('a, li, h1, h2, pre, blockquote, hr, div, p, br')) {
+    return false
+  }
+  const link = document.createElement('a')
+  link.href = url
+  link.target = '_blank'
+  link.rel = 'noopener noreferrer'
+  link.appendChild(range.extractContents())
+  range.insertNode(link)
+  selection.removeAllRanges()
+  const after = document.createRange()
+  after.setStartAfter(link)
+  after.collapse(true)
+  selection.addRange(after)
+  return true
+}
+
 function restore(range: Range): void {
   const selection = window.getSelection()
   selection?.removeAllRanges()

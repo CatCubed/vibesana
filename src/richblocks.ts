@@ -286,6 +286,66 @@ export function setBlock(editor: HTMLElement, kind: BlockKind): boolean {
   return editor.innerHTML !== before
 }
 
+/**
+ * Puts a divider line under the line (or block) the caret is in, and the caret on the line below it.
+ * Inside a list, heading, quote or code block the divider goes after that whole block.
+ */
+export function insertDivider(editor: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return false
+  const range = selection.getRangeAt(0)
+  let node: Node = range.endContainer
+  let offset = range.endOffset
+  if (node === editor) {
+    node = editor.childNodes[offset - 1] ?? editor.childNodes[offset] ?? editor.appendChild(document.createTextNode(''))
+    offset = node.nodeType === Node.TEXT_NODE ? (node as Text).length : 0
+  }
+  let top = node
+  while (top.parentNode && top.parentNode !== editor) top = top.parentNode
+  const rule = document.createElement('hr')
+
+  const text = top === node && node.nodeType === Node.TEXT_NODE ? (node as Text) : null
+  const breakAt = text ? text.data.indexOf('\n', offset) : -1
+  if (text && breakAt !== -1) {
+    // The line ends inside this text node: the divider goes where its line break was.
+    const tail = text.splitText(breakAt)
+    tail.deleteData(0, 1)
+    editor.insertBefore(rule, tail)
+  } else {
+    // Walk to the end of the line: up to a line break, a block, or the end of the editor.
+    let last = top
+    let next = top.nextSibling
+    if (!ELEMENT_BLOCKS.has(top.nodeName)) {
+      while (next && !isBoundary(next) && !(next.nodeType === Node.TEXT_NODE && (next.textContent ?? '').includes('\n'))) {
+        last = next
+        next = next.nextSibling
+      }
+    }
+    if (!ELEMENT_BLOCKS.has(top.nodeName) && next?.nodeName === 'BR') {
+      next.parentNode?.replaceChild(rule, next)
+    } else if (!ELEMENT_BLOCKS.has(top.nodeName) && next?.nodeType === Node.TEXT_NODE) {
+      const following = next as Text
+      const at = following.data.indexOf('\n')
+      const tail = at > 0 ? following.splitText(at) : following
+      tail.deleteData(0, 1)
+      editor.insertBefore(rule, tail)
+    } else {
+      editor.insertBefore(rule, last.nextSibling)
+    }
+  }
+
+  let below = rule.nextSibling
+  if (!below || below.nodeType !== Node.TEXT_NODE) {
+    below = document.createTextNode(ZWSP)
+    rule.after(below)
+    caretAt(below, 1)
+  } else {
+    if (!(below as Text).length) (below as Text).data = ZWSP
+    caretAt(below, (below as Text).data.startsWith(ZWSP) ? 1 : 0)
+  }
+  return true
+}
+
 /** The block style at `node`: a heading, a code block, or normal text. */
 export function blockAt(editor: HTMLElement, node: Node | null): BlockKind {
   const element = node instanceof Element ? node : (node?.parentElement ?? null)

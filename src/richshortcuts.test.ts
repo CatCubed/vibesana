@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { autoFormat } from './richshortcuts'
+import { autoFormat, revertAutoFormat } from './richshortcuts'
 import { serializeRichText } from './richtext'
 
 let editor: HTMLElement
@@ -322,8 +322,6 @@ describe('arrow shortcut', () => {
   it('leaves longer runs and code alone', () => {
     expect(type('a --> |')).toBe(false)
     editor.remove()
-    expect(type('a <-> |')).toBe(false)
-    editor.remove()
     expect(type('<code>x -> |</code>')).toBe(false)
     editor.remove()
     expect(type('<pre>if (a) -> |</pre>')).toBe(false)
@@ -332,5 +330,108 @@ describe('arrow shortcut', () => {
   it('does not get in the way of the bullet shortcut', () => {
     expect(type('- |')).toBe(true)
     expect(editor.querySelector('ul li')).not.toBeNull()
+  })
+})
+
+describe('more replacements', () => {
+  it.each([
+    ['a <-> |', 'a ↔ '],
+    ['x => |', 'x ⇒ '],
+    ['wait... |', 'wait… '],
+    ['one -- |two', 'one – two'],
+  ])('%s', (typed, result) => {
+    expect(type(typed)).toBe(true)
+    expect(editor.textContent).toBe(result)
+  })
+  it.each(['a ==> |', 'a <=> |', 'well.... |', '-- |', 'git push --force|', '<pre>a => |</pre>', '<code>a -- |</code>'])(
+    'leaves %s alone',
+    (typed) => {
+      expect(type(typed)).toBe(false)
+    },
+  )
+})
+
+describe('italic with single asterisks', () => {
+  it('turns *text* into italic', () => {
+    expect(type('an *important*| point')).toBe(true)
+    expect(serializeRichText(editor)).toContain('<em>important</em>')
+  })
+  it('does not fire while bold is being typed, for a bullet, or for multiplication', () => {
+    expect(type('**bold*|')).toBe(false)
+    editor.remove()
+    expect(type('2 * 3 *|')).toBe(false)
+    editor.remove()
+    expect(type('**bold**|')).toBe(true)
+    expect(serializeRichText(editor)).toContain('<strong>bold</strong>')
+  })
+})
+
+describe('numbered list variants', () => {
+  it.each(['1. |first', '1) |first', '3. |third', '12) |twelfth'])('%s starts a numbered list', (typed) => {
+    expect(type(typed)).toBe(true)
+    expect(editor.querySelector('ol li')).not.toBeNull()
+  })
+  it('does not treat a year or a decimal as a list', () => {
+    expect(type('2026. |')).toBe(false)
+    editor.remove()
+    expect(type('v1.|')).toBe(false)
+  })
+})
+
+describe('emoji shortcodes', () => {
+  it('replaces :name: when the closing colon is typed', () => {
+    expect(type('ship it :rocket:|')).toBe(true)
+    expect(editor.textContent).toBe('ship it 🚀')
+    editor.remove()
+    expect(type(':+1:|')).toBe(true)
+    expect(editor.textContent).toBe('👍')
+  })
+  it('leaves unknown names, times and code alone', () => {
+    expect(type('at :nope:|')).toBe(false)
+    editor.remove()
+    expect(type('10:30:|')).toBe(false)
+    editor.remove()
+    expect(type('<code>:rocket:|</code>')).toBe(false)
+  })
+})
+
+describe('Backspace after an automatic conversion', () => {
+  const backspace = () => new KeyboardEvent('keydown', { key: 'Backspace', cancelable: true })
+
+  it('gives back the typed characters, with the caret where it was', () => {
+    type('api -> |admin')
+    expect(editor.textContent).toBe('api → admin')
+    const event = backspace()
+    expect(revertAutoFormat(editor, event)).toBe(true)
+    expect(event.defaultPrevented).toBe(true)
+    expect(editor.textContent).toBe('api -> admin')
+    expect(window.getSelection()!.anchorOffset).toBe('api -> '.length)
+  })
+  it('turns a bullet back into the dash that was typed', () => {
+    type('- |item')
+    expect(editor.querySelector('ul')).not.toBeNull()
+    expect(revertAutoFormat(editor, backspace())).toBe(true)
+    expect(editor.querySelector('ul')).toBeNull()
+    expect(editor.textContent).toBe('- item')
+  })
+  it('only works once, and only straight after the conversion', () => {
+    type('x => |')
+    expect(revertAutoFormat(editor, new KeyboardEvent('keydown', { key: 'a' }))).toBe(false)
+    expect(revertAutoFormat(editor, backspace())).toBe(false)
+    expect(editor.textContent).toBe('x ⇒ ')
+    editor.remove()
+    type('x => |')
+    expect(revertAutoFormat(editor, backspace())).toBe(true)
+    expect(revertAutoFormat(editor, backspace())).toBe(false)
+  })
+  it('does nothing when the caret has moved away', () => {
+    type('x => |tail')
+    window.getSelection()!.collapse(editor.firstChild, 0)
+    expect(revertAutoFormat(editor, backspace())).toBe(false)
+    expect(editor.textContent).toBe('x ⇒ tail')
+  })
+  it('does nothing when the last input converted nothing', () => {
+    type('plain |')
+    expect(revertAutoFormat(editor, backspace())).toBe(false)
   })
 })

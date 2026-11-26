@@ -1,4 +1,5 @@
 import { editLink } from './richlink'
+import { emojiFor } from './emoji'
 import { setBlock, type BlockKind } from './richblocks'
 
 const BLOCKS = new Set(['DIV', 'P', 'UL', 'OL', 'LI', 'H1', 'H2', 'BLOCKQUOTE', 'PRE', 'HR'])
@@ -50,7 +51,7 @@ const MARKERS: { pattern: RegExp; kind: 'ul' | 'ol' | 'h1' | 'h2' | 'pre' | 'blo
   { pattern: /^>[ \u00a0]$/, kind: 'blockquote' },
   { pattern: /^```[ \u00a0]$/, kind: 'pre' },
   { pattern: /^[-*][  ]$/, kind: 'ul' },
-  { pattern: /^1\.[  ]$/, kind: 'ol' },
+  { pattern: /^\d{1,3}[.)][ \u00a0]$/, kind: 'ol' },
   { pattern: /^#[  ]$/, kind: 'h1' },
   { pattern: /^##[  ]$/, kind: 'h2' },
 ]
@@ -201,6 +202,8 @@ const INLINE: { pattern: RegExp; tag: string }[] = [
   { pattern: /\*\*([^*\n]+)\*\*$/, tag: 'strong' },
   { pattern: /~~([^~\n]+)~~$/, tag: 's' },
   { pattern: /(?<=^|[\s(])_([^_\n]+)_$/, tag: 'em' },
+  // A single pair of asterisks; "**" (bold in progress) and "* " (a bullet, or multiplication) do not count.
+  { pattern: /(?<=^|[\s(])\*([^*\s][^*\n]*)\*$/, tag: 'em' },
 ]
 
 function inlineShortcut(caret: Caret): boolean {
@@ -221,24 +224,99 @@ function inlineShortcut(caret: Caret): boolean {
   return false
 }
 
-const ARROWS: { typed: string; arrow: string }[] = [
-  { typed: '->', arrow: '→' },
-  { typed: '<-', arrow: '←' },
+interface Replacement {
+  typed: string
+  out: string
+  /** Only between words ("a -- b"), so "--flag" and a line starting with dashes are left alone. */
+  spaced?: boolean
+}
+
+// Longest first, so "<->" is not read as "<-" or "->".
+const REPLACEMENTS: Replacement[] = [
+  { typed: '<->', out: '↔' },
+  { typed: '...', out: '…' },
+  { typed: '->', out: '→' },
+  { typed: '<-', out: '←' },
+  { typed: '=>', out: '⇒' },
+  { typed: '--', out: '–', spaced: true },
 ]
 
 /**
- * "->" followed by a space becomes an arrow, as in Asana ("<-" likewise). Longer runs such as "-->" or
- * "<->" are left alone, and so is anything inside code.
+ * A few character runs followed by a space become the symbol they stand for, as in Asana: "->" an arrow,
+ * "..." an ellipsis, and so on. Longer runs ("-->", "....") are left alone, and so is anything inside code.
  */
-function arrowShortcut(caret: Caret): boolean {
+function replacementShortcut(caret: Caret): boolean {
   if (caret.node.parentElement?.closest('code, pre')) return false
-  const match = caret.before.match(/(^|[^-<>])(->|<-)([ \u00a0])$/)
-  if (!match) return false
-  const found = ARROWS.find((a) => a.typed === match[2])
-  if (!found) return false
-  const start = caret.offset - match[2].length - 1
-  caret.node.replaceData(start, match[2].length, found.arrow)
-  placeCaret(caret.node, start + found.arrow.length + 1)
+  if (!/[ \u00a0]$/.test(caret.before)) return false
+  const text = caret.before.slice(0, -1)
+  for (const rule of REPLACEMENTS) {
+    if (!text.endsWith(rule.typed)) continue
+    const prefix = text.slice(0, -rule.typed.length)
+    if (/[-<>=.]$/.test(prefix)) return false
+    if (rule.spaced && !/\S[ \u00a0]$/.test(prefix)) return false
+    const start = prefix.length
+    caret.node.replaceData(start, rule.typed.length, rule.out)
+    placeCaret(caret.node, start + rule.out.length + 1)
+    return true
+  }
+  return false
+}
+
+/** ":rocket:" becomes the emoji when the closing colon is typed. */
+function emojiShortcut(caret: Caret): boolean {
+  if (caret.node.parentElement?.closest('code, pre')) return false
+  const match = caret.before.match(/(?<=^|[\s(]):([a-z0-9_+-]{2,30}):$/)
+  const emoji = match ? emojiFor(match[1]) : null
+  if (!match || !emoji) return false
+  const start = caret.offset - match[0].length
+  caret.node.replaceData(start, match[0].length, emoji)
+  placeCaret(caret.node, start + emoji.length)
+  return true
+}
+
+/** How many characters of text come before a position, counted across the whole editor. */
+function textOffset(editor: HTMLElement, node: Node, offset: number): number {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+  let total = 0
+  while (walker.nextNode()) {
+    if (walker.currentNode === node) return total + offset
+    total += (walker.currentNode.textContent ?? '').length
+  }
+  return total
+}
+
+function placeAtTextOffset(editor: HTMLElement, target: number): void {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+  let left = target
+  let last: Text | null = null
+  while (walker.nextNode()) {
+    last = walker.currentNode as Text
+    if (left <= last.length) return placeCaret(last, left)
+    left -= last.length
+  }
+  if (last) placeCaret(last, last.length)
+  else placeCaret(editor, 0)
+}
+
+/** The last automatic conversion, kept until the next key press so Backspace can take it back. */
+let lastAuto: { editor: HTMLElement; html: string; caret: number; node: Node | null; offset: number } | null = null
+
+/**
+ * Backspace straight after an automatic conversion (a bullet, a divider, an arrow …) undoes the conversion
+ * and gives back the characters as they were typed. Returns true when handled.
+ */
+export function revertAutoFormat(editor: HTMLElement, event: KeyboardEvent): boolean {
+  const auto = lastAuto
+  if (event.key !== 'Backspace' || event.ctrlKey || event.metaKey || event.altKey || !auto || auto.editor !== editor) {
+    if (event.key.length === 1 || event.key === 'Enter' || event.key === 'Delete' || event.key === 'Backspace') lastAuto = null
+    return false
+  }
+  lastAuto = null
+  const selection = window.getSelection()
+  if (!selection?.isCollapsed || selection.anchorNode !== auto.node || selection.anchorOffset !== auto.offset) return false
+  event.preventDefault()
+  editor.innerHTML = auto.html
+  placeAtTextOffset(editor, auto.caret)
   return true
 }
 
@@ -253,12 +331,16 @@ export function autoFormat(editor: HTMLElement, event?: Event, options: AutoForm
   if (type.startsWith('delete') || type.startsWith('history')) return false
   const caret = caretIn(editor)
   if (!caret) return false
-  return (
+  const before = { html: editor.innerHTML, caret: textOffset(editor, caret.node, caret.offset) }
+  const done =
     (options.divider === true && dividerShortcut(editor, caret)) ||
     blockShortcut(editor, caret) ||
     inlineShortcut(caret) ||
-    arrowShortcut(caret)
-  )
+    emojiShortcut(caret) ||
+    replacementShortcut(caret)
+  const selection = window.getSelection()
+  lastAuto = done ? { editor, ...before, node: selection?.anchorNode ?? null, offset: selection?.anchorOffset ?? 0 } : null
+  return done
 }
 
 /** Enter inside a heading starts a normal line below it. Returns true when handled. */
