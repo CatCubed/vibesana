@@ -1,3 +1,4 @@
+import { linkSelectionTo } from './richlink'
 const RENDER_TAGS = new Set(['strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'h1', 'h2', 'hr', 'ul', 'ol', 'li', 'a', 'img', 'br', 'table', 'tr', 'td'])
 const SAFE_URL = /^(https?:|mailto:)/i
 
@@ -185,6 +186,13 @@ function normalizePastedWhitespace(root: Node): void {
 }
 
 export function handleRichPaste(event: ClipboardEvent): void {
+  const target = event.currentTarget
+  const plain = event.clipboardData?.getData('text/plain') ?? ''
+  if (target instanceof HTMLElement && linkSelectionTo(target, plain)) {
+    event.preventDefault()
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    return
+  }
   const html = event.clipboardData?.getData('text/html')
   if (!html) return
   event.preventDefault()

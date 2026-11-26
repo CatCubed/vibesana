@@ -4,7 +4,12 @@ import { onMounted, ref, watch } from 'vue'
 import { serializeRichText } from '../../richtext'
 import { useImagePaste } from '../../composables/useImagePaste'
 import { useFormatState } from '../../composables/useFormatState'
-import { autoFormat, exitHeadingOnEnter, handleFormatHotkey } from '../../richshortcuts'
+import { autoFormat, exitHeadingOnEnter, handleFormatHotkey, revertAutoFormat } from '../../richshortcuts'
+import { handleListTab } from '../../richlists'
+import { useSuggestions } from '../../composables/useSuggestions'
+import { useBoardContext } from '../../context'
+import { useDialog } from '../../composables/useDialog'
+import SuggestionList from './SuggestionList.vue'
 import { exitCodeOnEnter } from '../../richblocks'
 
 const props = defineProps<{ html: string; busy?: boolean; closeOnLeave?: boolean; divider?: boolean }>()
@@ -41,6 +46,24 @@ function onFocusOut(): void {
 const editor = ref<HTMLElement | null>(null)
 const images = useImagePaste()
 const active = useFormatState(editor)
+const suggest = useSuggestions(editor, { workspace: useBoardContext().workspace, mentions: ['user', 'task', 'project'] })
+
+function onInput(event: Event): void {
+  if (editor.value) autoFormat(editor.value, event, { divider: props.divider })
+  suggest.onInput()
+}
+
+/**
+ * Esc never throws work away silently. Where leaving the editor saves (the description), Esc saves too;
+ * elsewhere (editing a comment) it asks before discarding changes.
+ */
+async function escape(): Promise<void> {
+  if (!editor.value || finished) return
+  const changed = serializeRichText(editor.value) !== initial
+  if (!changed) return cancel()
+  if (props.closeOnLeave) return save()
+  if (await useDialog().confirm({ title: 'Discard your changes?', confirmLabel: 'Discard', danger: true })) cancel()
+}
 
 onMounted(() => {
   if (!editor.value) return
@@ -65,6 +88,9 @@ function cancel(): void {
 }
 
 function onKey(event: KeyboardEvent): void {
+  if (suggest.onKeydown(event)) return
+  if (editor.value && revertAutoFormat(editor.value, event)) return
+  if (editor.value && handleListTab(editor.value, event)) return
   if (images.onKeydown(event)) return
   if (handleFormatHotkey(event)) return
   if (editor.value && exitHeadingOnEnter(editor.value, event)) return
@@ -74,7 +100,7 @@ function onKey(event: KeyboardEvent): void {
     save()
   } else if (event.key === 'Escape') {
     event.stopPropagation()
-    cancel()
+    void escape()
   } else if (event.key === 'Enter' && !event.shiftKey) {
     const selection = window.getSelection()
     const inList = selection?.anchorNode && (selection.anchorNode.parentElement?.closest('li') ?? null)
@@ -88,11 +114,12 @@ function onKey(event: KeyboardEvent): void {
 
 <template>
   <div ref="root" class="rich-editor" @focusout="onFocusOut">
-    <FormatToolbar class="toolbar" :editor="editor" :active="active" />
-    <div ref="editor" class="rich editor" contenteditable="true" @keydown="onKey" @input="editor && autoFormat(editor, $event, { divider })" @click="images.onClick" @paste="images.onPaste" @dragover.prevent @drop="images.onDrop" />
+    <FormatToolbar class="toolbar" :editor="editor" :active="active" :divider="divider" />
+    <SuggestionList :items="suggest.items.value" :active="suggest.active.value" :anchor="suggest.anchor.value" @pick="suggest.pick" />
+    <div ref="editor" class="rich editor" contenteditable="true" @keydown="onKey" @input="onInput" @blur="suggest.close()" @click="images.onClick" @paste="images.onPaste" @dragover.prevent @drop="images.onDrop" />
     <div class="actions">
       <span class="muted" title="- or * list · 1. numbered · # heading · > quote · `code` · **bold** · _italic_ · ~~strike~~">
-        {{ closeOnLeave ? 'Click outside or Ctrl+Enter to save' : 'Ctrl+Enter to save' }} · Esc to cancel · Markdown shortcuts work
+        {{ closeOnLeave ? 'Click outside, Esc or Ctrl+Enter saves' : 'Ctrl+Enter saves · Esc cancels' }} · Markdown shortcuts work
       </span>
       <button class="btn-ghost" @click="cancel">Cancel</button>
       <button class="btn-primary" :disabled="busy" @click="save">Save</button>

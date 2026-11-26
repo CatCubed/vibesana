@@ -204,3 +204,31 @@ describe('block styles over several selected lines', () => {
     expect(select('one\nt[w]o\nthree', 'blockquote')).toBe('<body>one<blockquote>two</blockquote>three</body>')
   })
 })
+
+describe('insertDivider', () => {
+  async function divide(html: string): Promise<string> {
+    const { insertDivider } = await import('./richblocks')
+    setup(html)
+    expect(insertDivider(editor)).toBe(true)
+    return serializeRichText(editor)
+  }
+  it('goes under the line the caret is in (newline characters)', async () => {
+    expect(await divide('one\ntw|o\nthree')).toBe('<body>one\ntwo<hr/>three</body>')
+  })
+  it('goes under the line the caret is in (line break elements)', async () => {
+    expect(await divide('on|e<br>two')).toBe('<body>one<hr/>two</body>')
+  })
+  it('goes at the end when the caret is on the last line, with a place to keep typing', async () => {
+    expect(await divide('only li|ne')).toBe('<body>only line<hr/></body>')
+    expect(editor.lastChild?.nodeType).toBe(Node.TEXT_NODE)
+    expect(window.getSelection()!.anchorNode).toBe(editor.lastChild)
+  })
+  it('keeps inline formatting on the line together', async () => {
+    expect(await divide('pl|ain <strong>bold</strong> end\nnext')).toBe('<body>plain <strong>bold</strong> end<hr/>next</body>')
+  })
+  it('goes after a whole list, heading or quote rather than inside it', async () => {
+    expect(await divide('<ul><li>a</li><li>b|</li></ul>after')).toBe('<body><ul><li>a</li><li>b</li></ul><hr/>after</body>')
+    editor.remove()
+    expect(await divide('<blockquote>quo|ted</blockquote>')).toBe('<body><blockquote>quoted</blockquote><hr/></body>')
+  })
+})
