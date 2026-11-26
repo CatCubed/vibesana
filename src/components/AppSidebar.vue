@@ -1150,6 +1150,9 @@ h5 {
 }
 .switch {
   appearance: none;
+  flex: none;
+  /* Inputs get a 1px border from the base styles; here it would push the knob off-centre. */
+  border: 0;
   width: 36px;
   height: 20px;
   border-radius: var(--radius-pill);
@@ -1169,6 +1172,10 @@ h5 {
   border-radius: 50%;
   background: var(--text-strong);
   transition: transform 0.15s;
+}
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .switch:checked {
   background: var(--accent);
