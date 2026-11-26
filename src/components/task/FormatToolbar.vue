@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import UiIcon from '../UiIcon.vue'
 import type { FormatState } from '../../composables/useFormatState'
-import { setBlock, type BlockKind } from '../../richblocks'
+import { computed, ref } from 'vue'
+import { insertDivider, setBlock, type BlockKind } from '../../richblocks'
+import { EMOJI } from '../../emoji'
+import { useDismiss } from '../../layers'
 import { wrapSelectionInCode } from '../../richshortcuts'
 import { editLink } from '../../richlink'
 
 /** The formatting buttons shared by the description editor and the comment box. */
-const props = defineProps<{ editor: HTMLElement | null; active: FormatState; compact?: boolean }>()
+const props = defineProps<{ editor: HTMLElement | null; active: FormatState; compact?: boolean; divider?: boolean }>()
 const emit = defineEmits<{ change: [] }>()
 
 type Icon = InstanceType<typeof UiIcon>['$props']['name']
@@ -45,13 +48,33 @@ function code(): void {
   changed()
 }
 
+function divide(): void {
+  if (!props.editor) return
+  props.editor.focus()
+  insertDivider(props.editor)
+  changed()
+}
+
+const emojiRoot = ref<HTMLElement | null>(null)
+const emojiOpen = ref(false)
+useDismiss(emojiRoot, emojiOpen)
+/** Each emoji once, with its first name as the tooltip. */
+const EMOJI_LIST = [...new Map(Object.entries(EMOJI).map(([name, emoji]) => [emoji, name])).entries()].map(([emoji, name]) => ({ emoji, name }))
+
+function insertEmoji(emoji: string): void {
+  emojiOpen.value = false
+  props.editor?.focus()
+  document.execCommand('insertText', false, emoji)
+  changed()
+}
+
 function link(): void {
   if (!props.editor) return
   props.editor.focus()
   void editLink(props.editor).then(() => emit('change'))
 }
 
-const GROUPS: Tool[][] = [
+const GROUPS = computed<Tool[][]>(() => [
   [
     { title: 'Bold (Ctrl+B)', run: () => command('bold'), on: () => props.active.bold, text: 'B', tag: 'strong' },
     { title: 'Italic (Ctrl+I)', run: () => command('italic'), on: () => props.active.italic, text: 'I', tag: 'em' },
@@ -68,12 +91,14 @@ const GROUPS: Tool[][] = [
     { title: 'Code block (Ctrl+Shift+C)', run: () => block('pre'), on: () => props.active.block === 'pre', icon: 'code-block' },
     { title: 'Quote block (type > and Space)', run: () => block('blockquote'), on: () => props.active.block === 'blockquote', icon: 'quote' },
     { title: 'Normal text (Ctrl+Alt+0)', run: () => block('p'), icon: 'paragraph' },
+    // Asana accepts dividers in descriptions only.
+    ...(props.divider ? [{ title: 'Divider line (type ---)', run: divide, icon: 'divider' as Icon }] : []),
   ],
   [
     { title: 'Undo (Ctrl+Z)', run: () => command('undo'), icon: 'undo' },
     { title: 'Redo (Ctrl+Shift+Z)', run: () => command('redo'), icon: 'redo' },
   ],
-]
+])
 </script>
 
 <template>
@@ -97,6 +122,36 @@ const GROUPS: Tool[][] = [
         <template v-else>{{ tool.text }}</template>
       </button>
     </template>
+    <span class="sep" />
+    <div ref="emojiRoot" class="emoji-anchor">
+      <button
+        type="button"
+        :class="{ on: emojiOpen }"
+        title="Emoji (or type :name:)"
+        aria-label="Emoji"
+        aria-haspopup="true"
+        :aria-expanded="emojiOpen"
+        @mousedown.prevent="emojiOpen = !emojiOpen"
+        @click="$event.detail === 0 && (emojiOpen = !emojiOpen)"
+      >
+        <UiIcon name="smile" :size="15" />
+      </button>
+      <div v-if="emojiOpen" class="emoji-grid popup" :class="{ up: compact }" role="menu" aria-label="Emoji">
+        <button
+          v-for="item in EMOJI_LIST"
+          :key="item.emoji"
+          type="button"
+          class="emoji"
+          role="menuitem"
+          :title="`:${item.name}:`"
+          :aria-label="item.name"
+          @mousedown.prevent="insertEmoji(item.emoji)"
+          @click="$event.detail === 0 && insertEmoji(item.emoji)"
+        >
+          {{ item.emoji }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -128,6 +183,40 @@ button {
 }
 .compact button:hover {
   color: var(--text-strong);
+  background: var(--chip);
+}
+.emoji-anchor {
+  position: relative;
+  display: flex;
+}
+.emoji-grid {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 288px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+/* In the comment box the toolbar sits at the bottom, so the grid opens upwards. */
+.emoji-grid.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.emoji-grid .emoji,
+.compact .emoji-grid .emoji {
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  font-size: 18px;
+  background: transparent;
+  color: inherit;
+}
+.emoji-grid .emoji:hover {
   background: var(--chip);
 }
 button.on,
