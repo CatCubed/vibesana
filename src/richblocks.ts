@@ -147,30 +147,143 @@ function wrapLine(editor: HTMLElement, node: Node, offset: number, kind: Exclude
   return true
 }
 
-/** Turns the line at the caret into a heading or code block, or back into normal text. Pressing the same kind again toggles it off. */
+interface Position {
+  node: Node
+  offset: number
+}
+
+/** The node a position points at, stepping into the editor itself and into the line wrappers browsers create. */
+function resolve(editor: HTMLElement, node: Node, offset: number): Position {
+  let at: Position = { node, offset }
+  for (;;) {
+    const el = at.node
+    const wrapper = el === editor || (el instanceof HTMLElement && el.parentNode === editor && (el.tagName === 'DIV' || el.tagName === 'P'))
+    if (!wrapper) return at
+    const child = el.childNodes[at.offset] ?? el.lastChild
+    if (!child) {
+      if (el !== editor) return at
+      return { node: editor.appendChild(document.createTextNode('')), offset: 0 }
+    }
+    at = { node: child, offset: 0 }
+  }
+}
+
+/** The block the caret ended up in after a change. */
+function blockAtCaret(editor: HTMLElement, kind: BlockKind): Element | null {
+  const anchor = window.getSelection()?.anchorNode ?? null
+  const element = anchor instanceof Element ? anchor : (anchor?.parentElement ?? null)
+  const block = element?.closest(kind) ?? null
+  return block && block !== editor && editor.contains(block) ? block : null
+}
+
+/**
+ * Applies a block style to the line at `at`. With `toggle`, applying the style a line already has turns it
+ * back into normal text. Returns the block the line is in afterwards, or null (normal text, or a list item).
+ */
+function applyToLine(editor: HTMLElement, at: Position, kind: BlockKind, toggle: boolean): Element | null {
+  const element = at.node instanceof Element ? at.node : at.node.parentElement
+  const item = element?.closest('li, ul, ol')
+  if ((item && item !== editor && editor.contains(item)) || at.node.nodeName === 'HR') return null
+  const existing = element?.closest('h1, h2, pre, blockquote')
+  if (existing && existing !== editor && editor.contains(existing)) {
+    const same = existing.tagName.toLowerCase() === kind
+    if (same && !toggle) return existing
+    convertExisting(existing, same ? 'p' : kind)
+    return same || kind === 'p' ? null : blockAtCaret(editor, kind)
+  }
+  if (kind === 'p') return null
+  return wrapLine(editor, at.node, at.offset, kind) ? blockAtCaret(editor, kind) : null
+}
+
+function spansLines(range: Range): boolean {
+  if (range.collapsed) return false
+  return range.toString().includes('\n') || range.cloneContents().querySelector('br, div, p, h1, h2, pre, blockquote, li, hr') !== null
+}
+
+function isBlank(node: Node): boolean {
+  return node.nodeType === Node.TEXT_NODE && !(node.textContent ?? '').split(ZWSP).join('')
+}
+
+/** A selection over several lines: every line gets the style. Quotes and code become one block, headings one per line. */
+function setBlockOnLines(editor: HTMLElement, range: Range, kind: Exclude<BlockKind, 'p'>): boolean {
+  const start = { node: range.startContainer, offset: range.startOffset }
+  // Marks where the selection ends, and survives the text nodes being split and moved around it.
+  const marker = document.createElement('span')
+  const end = range.cloneRange()
+  end.collapse(false)
+  end.insertNode(marker)
+
+  const made: Element[] = []
+  let at = resolve(editor, start.node, start.offset)
+  for (let guard = 0; guard < 500; guard++) {
+    const block = applyToLine(editor, at, kind, false)
+    let next: Node | null
+    if (block) {
+      made.push(block)
+      if (block.contains(marker)) break
+      next = block.nextSibling
+    } else {
+      const element = at.node instanceof Element ? at.node : at.node.parentElement
+      const list = element?.closest('ul, ol')
+      if (!list || list.contains(marker)) break
+      next = list.nextSibling
+    }
+    // Lists and dividers keep their own shape: step over them.
+    for (;;) {
+      while (next && isBlank(next)) next = next.nextSibling
+      if (!next || !['UL', 'OL', 'HR'].includes(next.nodeName)) break
+      next = next.contains(marker) ? null : next.nextSibling
+    }
+    // Nothing left, or the selection ended right at the start of the next line.
+    if (!next || next === marker) break
+    at = resolve(editor, next, 0)
+  }
+  marker.remove()
+
+  const heading = kind === 'h1' || kind === 'h2'
+  let last: Element | null = null
+  for (const block of made) {
+    if (!block.isConnected) continue
+    const empty = !(block.textContent ?? '').split(ZWSP).join('') && !block.querySelector('img')
+    if (heading) {
+      // An empty line inside the selection stays an empty line, not an empty heading.
+      if (empty) block.replaceWith(document.createElement('br'))
+      else last = block
+      continue
+    }
+    let previous = block.previousSibling
+    while (previous && isBlank(previous)) previous = previous.previousSibling
+    if (last && previous === last) {
+      // Same quote or code block: the line joins the one above it.
+      if (!(last.textContent ?? '').split(ZWSP).join('')) last.querySelector('br')?.remove()
+      last.append('\n', ...(empty ? [] : Array.from(block.childNodes)))
+      block.remove()
+    } else {
+      last = block
+    }
+  }
+  if (last) caretAtEnd(last)
+  return made.length > 0
+}
+
+/**
+ * Turns the line at the caret into a heading, quote or code block, or back into normal text; pressing the
+ * same kind again toggles it off. With several lines selected, all of them get the style.
+ */
 export function setBlock(editor: HTMLElement, kind: BlockKind): boolean {
   const selection = window.getSelection()
   if (!selection?.rangeCount) return false
   const range = selection.getRangeAt(0)
-  let node: Node | null = range.startContainer
-  let offset = range.startOffset
-  if (!editor.contains(node)) return false
-  if (node === editor) {
-    node = editor.childNodes[offset] ?? editor.lastChild
-    offset = 0
-    if (!node) {
-      node = editor.appendChild(document.createTextNode(''))
-    }
+  if (!editor.contains(range.startContainer)) return false
+  if (spansLines(range) && editor.contains(range.endContainer)) {
+    if (kind !== 'p') return setBlockOnLines(editor, range, kind)
+    const blocks = Array.from(editor.querySelectorAll('h1, h2, pre, blockquote')).filter((block) => range.intersectsNode(block))
+    for (const block of blocks) convertExisting(block, 'p')
+    return blocks.length > 0
   }
-  const element = node instanceof Element ? node : node.parentElement
-  const item = element?.closest('li')
-  if (item && editor.contains(item)) return false
-  const existing = element?.closest('h1, h2, pre, blockquote')
-  if (existing && existing !== editor && editor.contains(existing)) {
-    return convertExisting(existing, existing.tagName.toLowerCase() === kind ? 'p' : kind)
-  }
-  if (kind === 'p') return false
-  return wrapLine(editor, node, offset, kind)
+  const before = editor.innerHTML
+  applyToLine(editor, resolve(editor, range.startContainer, range.startOffset), kind, true)
+  return editor.innerHTML !== before
 }
 
 /** The block style at `node`: a heading, a code block, or normal text. */

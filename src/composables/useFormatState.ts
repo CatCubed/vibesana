@@ -65,6 +65,25 @@ export function formatsAt(editor: HTMLElement, node: Node | null): FormatState {
   return state
 }
 
+const TYPING_COMMANDS = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough' } as const
+
+/**
+ * With just a caret (nothing selected), the browser also keeps a "what will be typed next" style: pressing
+ * Ctrl+B on an empty line turns bold on before there is any bold text to look at. `query` asks the browser
+ * for that state (document.queryCommandState), so the buttons show it straight away.
+ */
+export function withTypingState(state: FormatState, query: (command: string) => boolean): FormatState {
+  const next = { ...state }
+  for (const key of Object.keys(TYPING_COMMANDS) as (keyof typeof TYPING_COMMANDS)[]) {
+    try {
+      next[key] = Boolean(query(TYPING_COMMANDS[key]))
+    } catch {
+      /* the browser could not say: keep what the surrounding text shows */
+    }
+  }
+  return next
+}
+
 /** Tracks the formatting at the caret or selection inside `editor`, for lighting up toolbar buttons. */
 export function useFormatState(editor: Ref<HTMLElement | null>): FormatState {
   const state = reactive<FormatState>(formatsAt(document.createElement('div'), null))
@@ -87,7 +106,9 @@ export function useFormatState(editor: Ref<HTMLElement | null>): FormatState {
       node = node.nextSibling
       while (node.firstChild) node = node.firstChild
     }
-    Object.assign(state, formatsAt(el, node))
+    const found = formatsAt(el, node)
+    const typing = selection.isCollapsed && typeof document.queryCommandState === 'function'
+    Object.assign(state, typing ? withTypingState(found, (command) => document.queryCommandState(command)) : found)
   }
 
   onMounted(() => document.addEventListener('selectionchange', update))

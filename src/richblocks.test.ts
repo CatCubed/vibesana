@@ -128,3 +128,79 @@ describe('quote blocks', () => {
     expect(serializeRichText(editor)).toBe('<body><blockquote>quoted</blockquote></body>')
   })
 })
+
+describe('block styles over several selected lines', () => {
+  /** Builds an editor from HTML where "[" and "]" mark the selection, then applies the style. */
+  function select(html: string, kind: BlockKind): string {
+    editor = document.createElement('div')
+    editor.innerHTML = html
+    document.body.appendChild(editor)
+    const range = document.createRange()
+    const find = (mark: string): [Text, number] => {
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text
+        const at = node.data.indexOf(mark)
+        if (at === -1) continue
+        node.deleteData(at, 1)
+        return [node, at]
+      }
+      throw new Error(`no ${mark} marker`)
+    }
+    range.setStart(...find('['))
+    range.setEnd(...find(']'))
+    const selection = window.getSelection()!
+    selection.removeAllRanges()
+    selection.addRange(range)
+    setBlock(editor, kind)
+    return serializeRichText(editor)
+  }
+
+  it('quotes every selected line as one quote block (newline characters)', () => {
+    expect(select('before\n[one\ntwo\nthr]ee\nafter', 'blockquote')).toBe(
+      '<body>before<blockquote>one\ntwo\nthree</blockquote>after</body>',
+    )
+  })
+  it('quotes every selected line as one quote block (line break elements)', () => {
+    expect(select('o[ne<br>two<br>three]<br>after', 'blockquote')).toBe('<body><blockquote>one\ntwo\nthree</blockquote>after</body>')
+  })
+  it('works across the line wrappers a browser creates', () => {
+    const xml = select('<div>[one</div><div>two</div><div>thr]ee</div><div>after</div>', 'blockquote')
+    expect(xml).toContain('<blockquote>one\ntwo\nthree</blockquote>')
+    expect(xml).toContain('after')
+    expect(editor.querySelectorAll('blockquote')).toHaveLength(1)
+  })
+  it('makes one code block out of several lines and keeps a blank line inside it', () => {
+    expect(select('[a = 1\n\nb = 2]', 'pre')).toBe('<body><pre>a = 1\n\nb = 2</pre></body>')
+  })
+  it('gives every selected line its own heading and leaves blank lines blank', () => {
+    const xml = select('[First\n\nSecond]\nrest', 'h2')
+    expect(editor.querySelectorAll('h2')).toHaveLength(2)
+    expect(xml).toContain('<h2>First</h2>')
+    expect(xml).toContain('<h2>Second</h2>')
+    expect(xml).toContain('rest')
+    expect(xml).not.toContain('<h2></h2>')
+  })
+  it('does not take the next line when the selection ends at its very start', () => {
+    expect(select('[one\ntwo\n]three', 'blockquote')).toBe('<body><blockquote>one\ntwo</blockquote>three</body>')
+  })
+  it('keeps inline formatting and joins a line that is already a quote', () => {
+    const xml = select('[plain <strong>bold</strong><blockquote>old</blockquote>la]st', 'blockquote')
+    expect(editor.querySelectorAll('blockquote')).toHaveLength(1)
+    expect(xml).toBe('<body><blockquote>plain <strong>bold</strong>\nold\nlast</blockquote></body>')
+  })
+  it('turns every selected block back into normal text', () => {
+    const xml = select('<h1>[Title</h1><blockquote>quoted</blockquote>pla]in', 'p')
+    expect(editor.querySelector('h1, blockquote')).toBeNull()
+    expect(xml).toContain('Title')
+    expect(xml).toContain('quoted')
+  })
+  it('skips list items inside the selection', () => {
+    select('[one<ul><li>item</li></ul>tw]o', 'blockquote')
+    expect(editor.querySelector('li')?.textContent).toBe('item')
+    expect(editor.querySelectorAll('blockquote')).toHaveLength(2)
+  })
+  it('still treats a selection inside one line as that single line', () => {
+    expect(select('one\nt[w]o\nthree', 'blockquote')).toBe('<body>one<blockquote>two</blockquote>three</body>')
+  })
+})

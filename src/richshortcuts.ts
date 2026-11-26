@@ -143,8 +143,9 @@ function blockShortcut(editor: HTMLElement, caret: Caret): boolean {
 }
 
 /**
- * Typing "---" on a line of its own turns that line into a divider (a horizontal rule), as in Asana.
- * Same line rules as the other block shortcuts; anything else on the line means it is just three dashes.
+ * Typing "---" at the start of a line turns it into a divider (a horizontal rule), as in Asana.
+ * Text already on that line after the dashes stays, on the line under the divider — so a divider can be
+ * put above existing text by typing the dashes in front of it.
  */
 function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   const container = caret.node.parentElement
@@ -158,14 +159,9 @@ function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   if (start === 0 && !endsLine(previousReal(caret.node))) return false
   if (caret.before.slice(start).split(ZWSP).join('') !== '---') return false
 
-  // Nothing may follow on the same line.
-  const rest = (caret.node.textContent ?? '').slice(caret.offset).split(ZWSP).join('')
   let following = caret.node.nextSibling
   while (following && following.nodeType === Node.TEXT_NODE && !(following.textContent ?? '').split(ZWSP).join('')) {
     following = following.nextSibling
-  }
-  if (rest ? !rest.startsWith('\n') : !(isBoundary(following) || (following!.nodeType === Node.TEXT_NODE && following!.textContent!.startsWith('\n')))) {
-    return false
   }
 
   // Cut the line out: the dashes, and the line breaks around them (a rule is a block of its own).
@@ -181,7 +177,9 @@ function dividerShortcut(editor: HTMLElement, caret: Caret): boolean {
   }
   if ((after.textContent ?? '').startsWith('\n')) after.deleteData(0, 1)
   else if (!after.length && following?.nodeName === 'BR') following.remove()
-  else if (!after.length && following?.nodeType === Node.TEXT_NODE) (following as Text).deleteData(0, 1)
+  else if (!after.length && following?.nodeType === Node.TEXT_NODE && (following.textContent ?? '').startsWith('\n')) {
+    ;(following as Text).deleteData(0, 1)
+  }
 
   const rule = document.createElement('hr')
   if (wrapped) editor.insertBefore(rule, container)
@@ -223,6 +221,27 @@ function inlineShortcut(caret: Caret): boolean {
   return false
 }
 
+const ARROWS: { typed: string; arrow: string }[] = [
+  { typed: '->', arrow: '→' },
+  { typed: '<-', arrow: '←' },
+]
+
+/**
+ * "->" followed by a space becomes an arrow, as in Asana ("<-" likewise). Longer runs such as "-->" or
+ * "<->" are left alone, and so is anything inside code.
+ */
+function arrowShortcut(caret: Caret): boolean {
+  if (caret.node.parentElement?.closest('code, pre')) return false
+  const match = caret.before.match(/(^|[^-<>])(->|<-)([ \u00a0])$/)
+  if (!match) return false
+  const found = ARROWS.find((a) => a.typed === match[2])
+  if (!found) return false
+  const start = caret.offset - match[2].length - 1
+  caret.node.replaceData(start, match[2].length, found.arrow)
+  placeCaret(caret.node, start + found.arrow.length + 1)
+  return true
+}
+
 export interface AutoFormatOptions {
   /** "---" makes a divider. Only where Asana accepts one: descriptions, not comments. */
   divider?: boolean
@@ -234,7 +253,12 @@ export function autoFormat(editor: HTMLElement, event?: Event, options: AutoForm
   if (type.startsWith('delete') || type.startsWith('history')) return false
   const caret = caretIn(editor)
   if (!caret) return false
-  return (options.divider === true && dividerShortcut(editor, caret)) || blockShortcut(editor, caret) || inlineShortcut(caret)
+  return (
+    (options.divider === true && dividerShortcut(editor, caret)) ||
+    blockShortcut(editor, caret) ||
+    inlineShortcut(caret) ||
+    arrowShortcut(caret)
+  )
 }
 
 /** Enter inside a heading starts a normal line below it. Returns true when handled. */

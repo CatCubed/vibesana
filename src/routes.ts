@@ -54,3 +54,22 @@ export function taskLink(project: string | null, task: string): string {
   const base = `${window.location.origin}${window.location.pathname}`
   return base + buildHash({ view: project ? 'board' : null, project, task })
 }
+
+/** What a browser-history entry of the app remembers. */
+export interface NavSnapshot {
+  view: string
+  project: { gid: string } | null
+  task: string | null
+  stack: string[]
+}
+
+/** True when two history entries show the same thing: same view, project, open task and the tasks under it. */
+export function sameNavState(a: NavSnapshot | null | undefined, b: NavSnapshot | null | undefined): boolean {
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
+  return (
+    a.view === b.view &&
+    (a.project?.gid ?? null) === (b.project?.gid ?? null) &&
+    (a.task ?? null) === (b.task ?? null) &&
+    (a.stack ?? []).join('/') === (b.stack ?? []).join('/')
+  )
+}

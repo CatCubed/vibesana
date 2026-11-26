@@ -25,7 +25,7 @@ import { useSettings } from './composables/useSettings'
 import { useTaskOpener } from './composables/useTaskOpener'
 import { useToasts } from './composables/useToasts'
 import { boardContextKey, type BoardContext } from './context'
-import { asanaTaskGid, buildHash, parseHash } from './routes'
+import { asanaTaskGid, buildHash, parseHash, sameNavState } from './routes'
 import { readSetting, removeSetting, writeSetting } from './settings'
 import { clearCache } from './cache'
 import type { Named, Person, Project } from './types'
@@ -142,12 +142,13 @@ interface NavState {
   project: Project | null
   task: string | null
   stack: string[]
-  /** How many history entries the task panel has pushed on top of the page it was opened from. */
-  depth?: number
 }
 
+/**
+ * Browser history works like in any site: every step is its own entry — opening a task, switching to
+ * another one, closing it, changing the project or view. Back undoes the last step, Forward redoes it.
+ */
 let applyingHistory = false
-let drawerDepth = 0
 
 function navState(): NavState {
   return JSON.parse(
@@ -156,7 +157,6 @@ function navState(): NavState {
       project: project.value,
       task: opener.state.gid,
       stack: opener.state.stack,
-      depth: drawerDepth,
     }),
   ) as NavState
 }
@@ -182,13 +182,11 @@ async function applyHash(): Promise<void> {
     }
     opener.state.gid = null
     opener.state.stack = []
-    drawerDepth = 0
     const base = navState()
     window.history.replaceState(base, '', hashOf(base) || window.location.pathname)
     if (route.task) {
       opener.state.gid = route.task
       opener.state.stack = [route.task]
-      drawerDepth = 1
       const withTask = navState()
       window.history.pushState(withTask, '', hashOf(withTask))
     }
@@ -201,6 +199,8 @@ function pushHistory(): void {
   if (applyingHistory) return
   try {
     const state = navState()
+    // Nothing changed since the current entry (a repeated click): no second, identical step.
+    if (sameNavState(window.history.state as NavState | null, state)) return
     window.history.pushState(state, '', hashOf(state) || window.location.pathname)
   } catch (e) {
     console.warn('history push failed', e)
@@ -210,7 +210,6 @@ function pushHistory(): void {
 function applyHistory(state: NavState | null): void {
   if (!state || !('view' in state)) return
   applyingHistory = true
-  drawerDepth = state.depth ?? 0
   view.value = state.view
   if ((state.project?.gid ?? null) !== (project.value?.gid ?? null)) {
     project.value = state.project
@@ -228,38 +227,12 @@ function onPopState(event: PopStateEvent): void {
 }
 
 function pushPage(): void {
-  drawerDepth = 0
   pushHistory()
 }
 
-opener.onNavigate(() => {
-  drawerDepth += 1
-  pushHistory()
-})
-opener.onClose(() => {
-  if (applyingHistory) return
-  try {
-    if (drawerDepth > 0) {
-      const steps = drawerDepth
-      drawerDepth = 0
-      window.history.go(-steps)
-    } else {
-      const state = navState()
-      window.history.replaceState(state, '', hashOf(state) || window.location.pathname)
-    }
-  } catch (e) {
-    console.warn('history close failed', e)
-  }
-})
-opener.onReplace(() => {
-  if (applyingHistory) return
-  try {
-    const state = navState()
-    window.history.replaceState(state, '', hashOf(state) || window.location.pathname)
-  } catch (e) {
-    console.warn('history replace failed', e)
-  }
-})
+// Opening a task, switching to another one and closing it are each a step of their own.
+opener.onNavigate(pushHistory)
+opener.onClose(pushHistory)
 
 async function connect(): Promise<void> {
   try {

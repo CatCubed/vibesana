@@ -49,3 +49,24 @@ describe('asanaTaskGid', () => {
     expect(asanaTaskGid('https://notasana.com/0/1200000000000001/1200000000000002')).toBeNull()
   })
 })
+
+describe('sameNavState', () => {
+  const base = { view: 'board', project: { gid: '1' }, task: null, stack: [] as string[] }
+  it('treats entries showing the same thing as equal', async () => {
+    const { sameNavState } = await import('./routes')
+    expect(sameNavState(base, { ...base, project: { gid: '1' } })).toBe(true)
+    expect(sameNavState({ ...base, task: '7', stack: ['7'] }, { ...base, task: '7', stack: ['7'] })).toBe(true)
+  })
+  it('tells apart a different task, project, view or task stack', async () => {
+    const { sameNavState } = await import('./routes')
+    expect(sameNavState(base, { ...base, task: '7', stack: ['7'] })).toBe(false)
+    expect(sameNavState(base, { ...base, project: { gid: '2' } })).toBe(false)
+    expect(sameNavState(base, { ...base, view: 'my' })).toBe(false)
+    expect(sameNavState({ ...base, task: '9', stack: ['7', '9'] }, { ...base, task: '9', stack: ['9'] })).toBe(false)
+  })
+  it('never matches a missing or foreign entry', async () => {
+    const { sameNavState } = await import('./routes')
+    expect(sameNavState(null, base)).toBe(false)
+    expect(sameNavState(base, undefined)).toBe(false)
+  })
+})

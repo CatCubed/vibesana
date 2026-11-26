@@ -264,10 +264,23 @@ describe('divider shortcut', () => {
     expect(serializeRichText(editor)).toContain('<hr/>')
     expect(serializeRichText(editor)).not.toContain('---')
   })
-  it('leaves dashes alone when they are not a line of their own', () => {
-    expect(typeIn(html('a ---|'))).toBe(false)
+  it('puts a divider above existing text when the dashes are typed in front of it', () => {
+    expect(typeIn(html('---|existing text'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body><hr/>existing text</body>')
     editor.remove()
-    expect(typeIn(html('---| more'))).toBe(false)
+    expect(typeIn(html('above\n---|existing\nbelow'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body>above<hr/>existing\nbelow</body>')
+    editor.remove()
+    expect(typeIn(html('---|<strong>bold start</strong> of a line'))).toBe(true)
+    expect(serializeRichText(editor)).toBe('<body><hr/><strong>bold start</strong> of a line</body>')
+    editor.remove()
+    expect(typeIn(html('<div>above</div><div>---|existing</div>'))).toBe(true)
+    expect(editor.querySelectorAll('hr')).toHaveLength(1)
+    expect(serializeRichText(editor)).toContain('existing')
+    expect(serializeRichText(editor)).not.toContain('---')
+  })
+  it('leaves dashes alone when they are not at the start of a line', () => {
+    expect(typeIn(html('a ---|'))).toBe(false)
     editor.remove()
     expect(typeIn(html('--|'))).toBe(false)
     editor.remove()
@@ -280,6 +293,44 @@ describe('divider shortcut', () => {
   })
   it('does not disturb the bullet shortcut', () => {
     expect(typeIn(html('- |'))).toBe(true)
+    expect(editor.querySelector('ul li')).not.toBeNull()
+  })
+})
+
+describe('arrow shortcut', () => {
+  it('turns "->" and a space into an arrow and keeps the caret after the space', () => {
+    expect(type('api -> |admin')).toBe(true)
+    expect(editor.textContent).toBe('api → admin')
+    const selection = window.getSelection()!
+    expect(selection.anchorOffset).toBe('api → '.length)
+  })
+  it('works at the start of a line and with a non-breaking space', () => {
+    expect(type('-> |')).toBe(true)
+    expect(editor.textContent).toBe('→ ')
+    editor.remove()
+    expect(type('a\n->\u00a0|')).toBe(true)
+    expect(editor.textContent).toBe('a\n→\u00a0')
+  })
+  it('turns "<-" into a left arrow', () => {
+    expect(type('back <- |')).toBe(true)
+    expect(editor.textContent).toBe('back ← ')
+  })
+  it('waits for the space', () => {
+    expect(type('a ->|')).toBe(false)
+    expect(editor.textContent).toBe('a ->')
+  })
+  it('leaves longer runs and code alone', () => {
+    expect(type('a --> |')).toBe(false)
+    editor.remove()
+    expect(type('a <-> |')).toBe(false)
+    editor.remove()
+    expect(type('<code>x -> |</code>')).toBe(false)
+    editor.remove()
+    expect(type('<pre>if (a) -> |</pre>')).toBe(false)
+    expect(editor.textContent).toBe('if (a) -> ')
+  })
+  it('does not get in the way of the bullet shortcut', () => {
+    expect(type('- |')).toBe(true)
     expect(editor.querySelector('ul li')).not.toBeNull()
   })
 })
